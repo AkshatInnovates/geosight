@@ -16,6 +16,12 @@ async function callClaude(prompt) {
     body: JSON.stringify({ prompt })
   });
   const data = await res.json();
+  if (data.error) {
+    throw new Error('API Error: ' + data.error);
+  }
+  if (!data.content || !data.content[0]) {
+    throw new Error('Bad response: ' + JSON.stringify(data));
+  }
   return data.content[0].text;
 }
 
