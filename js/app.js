@@ -36,19 +36,18 @@ async function loadOverview() {
     </div>`;
   try {
     const raw = await callClaude(
-      `Return a JSON array of 6 major geopolitical highlights happening right now in the world.
-      Each object must have:
+      `Return a JSON array of 6 major geopolitical highlights happening right now.
+      Each object:
       {
         "id": number,
         "headline": "clear specific headline max 10 words",
         "region": "specific region name",
         "category": "WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION",
         "severity": "HIGH|MEDIUM|LOW",
-        "summary": "2-3 sentence detailed explanation of what is happening, why it matters, and what the latest development is. Be specific with country names, leaders, and facts.",
-        "casualty": "estimated casualties or displaced if applicable, else empty string",
+        "summary": "2-3 sentence detailed explanation. Be specific with country names, leaders, and facts.",
+        "casualty": "estimated casualties if applicable else empty string",
         "since": "when did this start e.g. Since 2022"
-      }
-      Focus on: Russia-Ukraine, Israel-Gaza, Iran-US tensions, Sudan, Myanmar, global diplomacy.`
+      }`
     );
     const items = JSON.parse(raw);
     document.getElementById('overviewBody').innerHTML = items.map((it, i) => `
@@ -87,9 +86,7 @@ function severityTag(s) {
 
 // ── Ticker ─────────────────────────────────────────────────────────────────
 function loadTicker(items) {
-  const txt = items.map(it =>
-    `<span class="ticker-item">${esc(it.headline)}</span>`
-  ).join('');
+  const txt = items.map(it => `<span class="ticker-item">${esc(it.headline)}</span>`).join('');
   document.getElementById('tickerTrack').innerHTML = txt + txt;
 }
 
@@ -109,8 +106,7 @@ async function loadWars() {
     const raw = await callClaude(
       `Return a JSON array of exactly 2 wars with very detailed updates:
       1. Russia vs Ukraine war
-      2. Iran vs US and Israel tensions/conflict
-
+      2. Iran vs US and Israel tensions
       Each object:
       {
         "name": "war name",
@@ -118,11 +114,11 @@ async function loadWars() {
         "status": "CRITICAL|HIGH|MEDIUM",
         "parties": "e.g. Russia vs Ukraine",
         "duration": "e.g. Since Feb 2022",
-        "overview": "3-4 sentence detailed overview of the entire conflict, its origins and current state",
-        "latest": "2-3 sentence description of the most recent developments in last few weeks",
-        "frontlines": "specific cities, regions or areas currently under attack or contested",
-        "casualties": "estimated total casualties or deaths",
-        "international": "which countries or organizations are involved or supporting which side",
+        "overview": "3-4 sentence detailed overview",
+        "latest": "2-3 sentence most recent developments",
+        "frontlines": "specific cities or regions contested",
+        "casualties": "estimated total casualties",
+        "international": "which countries are involved or supporting",
         "outlook": "SHORT|ESCALATING|DE-ESCALATING"
       }`
     );
@@ -183,19 +179,19 @@ async function loadMarkets() {
   document.getElementById('marketAnalysis').textContent = 'Loading analysis...';
   try {
     const raw = await callClaude(
-      `Return a JSON object with commodity prices that are DIRECTLY affected by current wars especially Russia-Ukraine and Middle East conflicts.
+      `Return JSON with commodity prices directly affected by current wars:
       {
         "commodities": [
-          {"name":"Brent Crude Oil","symbol":"BRENT","price":"$XX.XX","change":"+X.X%","direction":"up|down","unit":"per barrel","war_impact":"one sentence on how current wars affect this price"},
+          {"name":"Brent Crude Oil","symbol":"BRENT","price":"$XX.XX","change":"+X.X%","direction":"up|down","unit":"per barrel","war_impact":"one sentence on war effect"},
           {"name":"WTI Crude Oil","symbol":"WTI","price":"$XX.XX","change":"X.X%","direction":"up|down","unit":"per barrel","war_impact":"one sentence"},
           {"name":"Natural Gas","symbol":"NATGAS","price":"$X.XX","change":"X.X%","direction":"up|down","unit":"per MMBtu","war_impact":"one sentence"},
           {"name":"Gold","symbol":"XAU","price":"$XXXX","change":"X.X%","direction":"up|down","unit":"per oz","war_impact":"one sentence"},
           {"name":"Wheat","symbol":"WHEAT","price":"$XXX","change":"X.X%","direction":"up|down","unit":"per bushel","war_impact":"one sentence"},
           {"name":"Uranium","symbol":"URA","price":"$XX","change":"X.X%","direction":"up|down","unit":"per lb","war_impact":"one sentence"}
         ],
-        "analysis": "3 sentence detailed analysis of how current wars are affecting global commodity markets and supply chains"
+        "analysis": "3 sentence analysis of how current wars affect global commodity markets"
       }
-      Use realistic approximate current market prices. Fill ALL fields.`
+      Use realistic current market prices. Fill ALL fields.`
     );
     const data = JSON.parse(raw);
     document.getElementById('marketBody').innerHTML = `
@@ -219,198 +215,126 @@ async function loadMarkets() {
   icon.classList.remove('spinning');
 }
 
-// ── World Map ──────────────────────────────────────────────────────────────
+// ── Leaflet World Map ──────────────────────────────────────────────────────
 const conflictZones = [
-  { name: "Kyiv", x: 0.548, y: 0.265, type: "critical", desc: "Ukraine capital. Russian missile strikes ongoing on infrastructure." },
-  { name: "Bakhmut", x: 0.558, y: 0.272, type: "critical", desc: "Eastern Ukraine frontline. Heavy artillery exchanges." },
-  { name: "Kherson", x: 0.553, y: 0.278, type: "critical", desc: "Southern Ukraine. Russian-occupied territory, active shelling." },
-  { name: "Gaza", x: 0.572, y: 0.415, type: "critical", desc: "Gaza Strip. Ongoing Israeli military operations. Humanitarian crisis." },
-  { name: "Tel Aviv", x: 0.571, y: 0.408, type: "high", desc: "Israel. Rocket attacks from Gaza and Hezbollah in Lebanon." },
-  { name: "Tehran", x: 0.613, y: 0.378, type: "high", desc: "Iran. US sanctions tightened. Nuclear program tensions escalating." },
-  { name: "Strait of Hormuz", x: 0.628, y: 0.418, type: "high", desc: "Critical oil shipping lane. Iran threat to block passage. 20% of world oil passes here." },
-  { name: "Khartoum", x: 0.558, y: 0.488, type: "critical", desc: "Sudan capital. Civil war between SAF and RSF. Massive civilian displacement." },
-  { name: "Darfur", x: 0.543, y: 0.495, type: "critical", desc: "Sudan. RSF controls most of Darfur. Ethnic violence and mass displacement." },
-  { name: "Yangon", x: 0.728, y: 0.458, type: "high", desc: "Myanmar. Military junta vs resistance forces. Urban warfare ongoing." },
-  { name: "Aleppo", x: 0.578, y: 0.375, type: "high", desc: "Syria. Post-Assad transition. Multiple armed factions active." },
-  { name: "Sanaa", x: 0.601, y: 0.468, type: "high", desc: "Yemen capital held by Houthis. Airstrikes on Red Sea shipping lanes." },
-  { name: "Red Sea", x: 0.588, y: 0.455, type: "high", desc: "Houthi attacks on commercial vessels. Global shipping disruption." },
-  { name: "Bamako", x: 0.455, y: 0.478, type: "high", desc: "Mali. Sahel insurgency. Wagner Group presence. French forces expelled." },
-  { name: "Mogadishu", x: 0.618, y: 0.528, type: "medium", desc: "Somalia. Al-Shabaab insurgency. US airstrikes ongoing." },
-  { name: "Port-au-Prince", x: 0.262, y: 0.448, type: "medium", desc: "Haiti capital. Gang control over 80% of city. UN mission deployed." },
-  { name: "Taiwan Strait", x: 0.772, y: 0.388, type: "medium", desc: "PRC military exercises near Taiwan. US carrier groups deployed nearby." },
-  { name: "Pyongyang", x: 0.798, y: 0.328, type: "medium", desc: "North Korea. ICBM missile tests. Weapons supplied to Russia." },
-  { name: "Goma", x: 0.548, y: 0.553, type: "high", desc: "DR Congo. M23 rebels backed by Rwanda control eastern DRC. UN peacekeepers present." },
-  { name: "Nagorno-Karabakh", x: 0.603, y: 0.328, type: "medium", desc: "Azerbaijan-Armenia. Post-war tensions. Armenian population displaced." },
+  { name: "Kyiv", lat: 50.45, lng: 30.52, type: "critical", desc: "Ukraine capital. Russian missile strikes on infrastructure ongoing." },
+  { name: "Bakhmut", lat: 48.60, lng: 37.99, type: "critical", desc: "Eastern Ukraine frontline. Heavy artillery exchanges daily." },
+  { name: "Kherson", lat: 46.63, lng: 32.61, type: "critical", desc: "Southern Ukraine. Active shelling across the river." },
+  { name: "Gaza Strip", lat: 31.35, lng: 34.30, type: "critical", desc: "Ongoing Israeli military operations. Severe humanitarian crisis." },
+  { name: "Tel Aviv", lat: 32.08, lng: 34.78, type: "high", desc: "Israel. Rocket attacks from Gaza and Hezbollah in Lebanon." },
+  { name: "Tehran", lat: 35.69, lng: 51.39, type: "high", desc: "Iran. US sanctions tightened. Nuclear program tensions escalating." },
+  { name: "Strait of Hormuz", lat: 26.57, lng: 56.25, type: "high", desc: "Critical oil lane. Iran threatens to block. 20% of world oil passes here." },
+  { name: "Khartoum", lat: 15.55, lng: 32.53, type: "critical", desc: "Sudan capital. Civil war between SAF and RSF. Mass displacement." },
+  { name: "Darfur", lat: 13.50, lng: 24.00, type: "critical", desc: "Sudan. RSF controls Darfur. Ethnic violence ongoing." },
+  { name: "Yangon", lat: 16.87, lng: 96.19, type: "high", desc: "Myanmar. Military junta vs resistance. Urban warfare ongoing." },
+  { name: "Aleppo", lat: 36.20, lng: 37.16, type: "high", desc: "Syria. Post-Assad transition. Multiple armed factions active." },
+  { name: "Sanaa", lat: 15.35, lng: 44.20, type: "high", desc: "Yemen. Houthi capital. Attacks on Red Sea shipping." },
+  { name: "Red Sea", lat: 18.00, lng: 38.50, type: "high", desc: "Houthi attacks on commercial vessels. Global shipping disrupted." },
+  { name: "Bamako", lat: 12.65, lng: -8.00, type: "high", desc: "Mali. Sahel insurgency. Wagner Group presence." },
+  { name: "Mogadishu", lat: 2.05, lng: 45.34, type: "medium", desc: "Somalia. Al-Shabaab insurgency. US airstrikes ongoing." },
+  { name: "Port-au-Prince", lat: 18.54, lng: -72.33, type: "medium", desc: "Haiti. Gang control over 80% of city. UN mission deployed." },
+  { name: "Taiwan Strait", lat: 24.50, lng: 119.50, type: "medium", desc: "PRC military exercises near Taiwan. US carrier groups nearby." },
+  { name: "Pyongyang", lat: 39.02, lng: 125.75, type: "medium", desc: "North Korea. ICBM tests. Weapons supplied to Russia." },
+  { name: "Goma", lat: -1.67, lng: 29.22, type: "high", desc: "DR Congo. M23 rebels control eastern DRC. UN peacekeepers present." },
+  { name: "Nagorno-Karabakh", lat: 39.82, lng: 46.76, type: "medium", desc: "Azerbaijan-Armenia. Post-war tensions remain high." },
 ];
 
-const seaRoutes = [
-  { name: "Strait of Hormuz", x1: 0.618, y1: 0.418, x2: 0.635, y2: 0.428, label: "Strait of Hormuz" },
-  { name: "Suez Canal", x1: 0.562, y1: 0.408, x2: 0.568, y2: 0.422, label: "Suez Canal" },
-  { name: "Red Sea", x1: 0.578, y1: 0.438, x2: 0.592, y2: 0.468, label: "Red Sea" },
-  { name: "Black Sea", x1: 0.548, y1: 0.298, x2: 0.568, y2: 0.308, label: "Black Sea" },
-];
-
-const countries = [
-  { name: "RUSSIA", x: 0.62, y: 0.22 },
-  { name: "UKRAINE", x: 0.548, y: 0.258 },
-  { name: "IRAN", x: 0.618, y: 0.368 },
-  { name: "ISRAEL", x: 0.571, y: 0.405 },
-  { name: "SUDAN", x: 0.555, y: 0.478 },
-  { name: "SYRIA", x: 0.578, y: 0.368 },
-  { name: "IRAQ", x: 0.593, y: 0.378 },
-  { name: "SAUDI ARABIA", x: 0.608, y: 0.435 },
-  { name: "YEMEN", x: 0.601, y: 0.462 },
-  { name: "CHINA", x: 0.748, y: 0.348 },
-  { name: "USA", x: 0.19, y: 0.318 },
-  { name: "INDIA", x: 0.668, y: 0.418 },
-  { name: "MYANMAR", x: 0.728, y: 0.448 },
-  { name: "SOMALIA", x: 0.618, y: 0.518 },
-  { name: "MALI", x: 0.455, y: 0.468 },
-  { name: "CONGO", x: 0.545, y: 0.545 },
-  { name: "ETHIOPIA", x: 0.585, y: 0.508 },
-  { name: "EGYPT", x: 0.558, y: 0.408 },
-  { name: "TURKEY", x: 0.562, y: 0.345 },
-  { name: "PAKISTAN", x: 0.648, y: 0.388 },
-];
+let leafletMap = null;
 
 function renderMap() {
-  const canvas = document.getElementById('worldMap');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.parentElement.offsetWidth;
-  const H = 520;
-  canvas.width = W;
-  canvas.height = H;
+  const mapDiv = document.getElementById('leafletMap');
+  if (!mapDiv) return;
 
-  // Ocean background
-  ctx.fillStyle = '#0a1628';
-  ctx.fillRect(0, 0, W, H);
-
-  // Grid lines (latitude/longitude)
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 0.5;
-  for (let x = 0; x < W; x += W / 18) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-  for (let y = 0; y < H; y += H / 9) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  if (leafletMap) {
+    setTimeout(() => leafletMap.invalidateSize(), 100);
+    return;
   }
 
-  // Equator
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6, 4]);
-  ctx.beginPath(); ctx.moveTo(0, H * 0.5); ctx.lineTo(W, H * 0.5); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Prime meridian
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath(); ctx.moveTo(W * 0.5, 0); ctx.lineTo(W * 0.5, H); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Tropic of Cancer
-  ctx.strokeStyle = 'rgba(232,76,48,0.08)';
-  ctx.setLineDash([3, 6]);
-  ctx.beginPath(); ctx.moveTo(0, H * 0.37); ctx.lineTo(W, H * 0.37); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Labels for lines
-  ctx.font = '8px DM Mono,monospace';
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  ctx.fillText('EQUATOR', 4, H * 0.5 - 3);
-  ctx.fillStyle = 'rgba(232,76,48,0.5)';
-  ctx.fillText('TROPIC OF CANCER', 4, H * 0.37 - 3);
-
-  // Sea route lines
-  ctx.strokeStyle = 'rgba(59,130,246,0.3)';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 3]);
-  seaRoutes.forEach(r => {
-    ctx.beginPath();
-    ctx.moveTo(r.x1 * W, r.y1 * H);
-    ctx.lineTo(r.x2 * W, r.y2 * H);
-    ctx.stroke();
-    ctx.font = '7px DM Mono,monospace';
-    ctx.fillStyle = 'rgba(59,130,246,0.7)';
-    ctx.fillText(r.label, r.x1 * W - 10, r.y1 * H - 5);
-  });
-  ctx.setLineDash([]);
-
-  // Country name labels
-  ctx.font = '7px DM Mono,monospace';
-  countries.forEach(c => {
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.fillText(c.name, c.x * W, c.y * H);
+  leafletMap = L.map('leafletMap', {
+    center: [25, 20],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 8,
+    zoomControl: true,
+    scrollWheelZoom: true
   });
 
-  // Conflict zone dots
+  // Dark style map tiles
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(leafletMap);
+
+  // Add all conflict markers
   conflictZones.forEach(z => {
-    const px = z.x * W, py = z.y * H;
     const color = z.type === 'critical' ? '#ef4444' : z.type === 'high' ? '#f97316' : '#eab308';
-    const r = z.type === 'critical' ? 7 : z.type === 'high' ? 5 : 4;
+    const size = z.type === 'critical' ? 18 : z.type === 'high' ? 14 : 10;
 
-    // Outer glow ring
-    ctx.beginPath();
-    ctx.arc(px, py, r + 6, 0, Math.PI * 2);
-    ctx.fillStyle = z.type === 'critical'
-      ? 'rgba(239,68,68,0.12)'
-      : z.type === 'high'
-      ? 'rgba(249,115,22,0.12)'
-      : 'rgba(234,179,8,0.12)';
-    ctx.fill();
-
-    // Middle ring
-    ctx.beginPath();
-    ctx.arc(px, py, r + 2, 0, Math.PI * 2);
-    ctx.fillStyle = z.type === 'critical'
-      ? 'rgba(239,68,68,0.25)'
-      : z.type === 'high'
-      ? 'rgba(249,115,22,0.25)'
-      : 'rgba(234,179,8,0.25)';
-    ctx.fill();
-
-    // Core dot
-    ctx.beginPath();
-    ctx.arc(px, py, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
-
-    // Location name label
-    ctx.font = '8px DM Mono,monospace';
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
-    ctx.fillText(z.name, px + r + 4, py + 3);
-  });
-
-  // Tooltip on hover
-  canvas.onmousemove = function (e) {
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (W / rect.width);
-    const my = (e.clientY - rect.top) * (H / rect.height);
-    const tt = document.getElementById('mapTooltip');
-    let found = false;
-    conflictZones.forEach(z => {
-      const px = z.x * W, py = z.y * H;
-      const dist = Math.sqrt((mx - px) ** 2 + (my - py) ** 2);
-      if (dist < 16) {
-        document.getElementById('ttTitle').textContent = z.name;
-        document.getElementById('ttDesc').textContent = z.desc;
-        tt.style.display = 'block';
-        tt.style.left = Math.min(e.clientX - rect.left + 14, rect.width - 220) + 'px';
-        tt.style.top = Math.max(e.clientY - rect.top - 40, 0) + 'px';
-        found = true;
-      }
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${size}px;
+        height:${size}px;
+        background:${color};
+        border-radius:50%;
+        border:2px solid rgba(255,255,255,0.5);
+        box-shadow:0 0 ${size}px ${color}, 0 0 ${size * 2}px ${color}66;
+        animation: mapPulse 2s infinite;
+        cursor:pointer;
+      "></div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      popupAnchor: [0, -size]
     });
-    if (!found) tt.style.display = 'none';
-    canvas.style.cursor = found ? 'pointer' : 'default';
-  };
 
-  canvas.onmouseleave = () => {
-    document.getElementById('mapTooltip').style.display = 'none';
-  };
+    L.marker([z.lat, z.lng], { icon })
+      .addTo(leafletMap)
+      .bindPopup(`
+        <div style="
+          background:#111318;
+          color:#e8eaf0;
+          border:1px solid rgba(255,255,255,0.15);
+          border-radius:10px;
+          padding:14px 16px;
+          min-width:220px;
+          max-width:260px;
+          font-family:'DM Sans',sans-serif;
+        ">
+          <div style="
+            font-family:'Syne',sans-serif;
+            font-weight:800;
+            font-size:14px;
+            color:${color};
+            margin-bottom:8px;
+            display:flex;
+            align-items:center;
+            gap:6px;
+          ">
+            <span style="
+              width:8px;height:8px;
+              background:${color};
+              border-radius:50%;
+              display:inline-block;
+              box-shadow:0 0 6px ${color};
+            "></span>
+            ${z.name}
+          </div>
+          <div style="font-size:12px;color:#9ca3af;line-height:1.6;margin-bottom:10px;">${z.desc}</div>
+          <div style="
+            font-size:10px;
+            font-family:'DM Mono',monospace;
+            color:${color};
+            background:${color}22;
+            border:1px solid ${color}44;
+            padding:3px 10px;
+            border-radius:4px;
+            display:inline-block;
+            letter-spacing:0.05em;
+          ">${z.type.toUpperCase()}</div>
+        </div>
+      `, { maxWidth: 280 });
+  });
 }
 
 // ── Section Navigation ─────────────────────────────────────────────────────
@@ -419,7 +343,9 @@ function showSection(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
   document.getElementById('btn-' + name).classList.add('active');
-  if (name === 'map') setTimeout(renderMap, 100);
+  if (name === 'map') {
+    setTimeout(renderMap, 150);
+  }
 }
 
 // ── Utility ────────────────────────────────────────────────────────────────
@@ -439,12 +365,10 @@ document.addEventListener('DOMContentLoaded', function () {
   loadOverview();
   loadWars();
   loadMarkets();
-  renderMap();
 });
 
 window.addEventListener('resize', () => {
-  clearTimeout(window._rt);
-  window._rt = setTimeout(renderMap, 200);
+  if (leafletMap) leafletMap.invalidateSize();
 });
 
 setInterval(() => {
@@ -452,3 +376,4 @@ setInterval(() => {
   loadWars();
   loadMarkets();
 }, 30 * 60 * 1000);
+
