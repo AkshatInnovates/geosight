@@ -308,10 +308,19 @@ function esc(s) {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
-loadOverview();
-loadWars();
-loadMarkets();
-renderMap();
+// ── Init ───────────────────────────────────────────────────────────────────
+window.showSection = showSection;
+window.loadOverview = loadOverview;
+window.loadWars = loadWars;
+window.loadMarkets = loadMarkets;
+window.renderMap = renderMap;
+
+document.addEventListener('DOMContentLoaded', function() {
+  loadOverview();
+  loadWars();
+  loadMarkets();
+  renderMap();
+});
 
 window.addEventListener('resize', () => {
   clearTimeout(window._rt);
