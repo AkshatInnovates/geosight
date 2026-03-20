@@ -64,16 +64,3 @@ exports.handler = async function (event) {
     };
   }
 };
-```
-
----
-
-Then push to GitHub in the terminal:
-```
-git add .
-```
-```
-git commit -m "fix groq error handling"
-```
-```
-git push
