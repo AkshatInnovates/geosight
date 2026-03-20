@@ -18,10 +18,7 @@ exports.handler = async function (event) {
         messages: [
           {
             role: 'system',
-            content: `You are a geopolitics intelligence briefing system for GEOSIGHT.
-Today: ${new Date().toDateString()}.
-Return ONLY valid JSON with no markdown, no backticks, no preamble.
-Be concise and factual.`
+            content: `You are a geopolitics intelligence briefing system for GEOSIGHT. Today: ${new Date().toDateString()}. Return ONLY valid JSON with no markdown, no backticks, no preamble. Be concise and factual.`
           },
           {
             role: 'user',
@@ -32,6 +29,25 @@ Be concise and factual.`
     });
 
     const data = await response.json();
+
+    // Log for debugging
+    console.log('Groq response:', JSON.stringify(data));
+
+    // Check for errors from Groq
+    if (data.error) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: data.error.message })
+      };
+    }
+
+    // Check response structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Invalid response from Groq', raw: data })
+      };
+    }
 
     const text = data.choices[0].message.content;
 
@@ -52,8 +68,12 @@ Be concise and factual.`
 
 ---
 
-### 16b — Update your `.env` file
-
-Click `.env` in the sidebar, select all (**Ctrl + A**), delete, paste this, save (**Ctrl + S**):
+Then push to GitHub in the terminal:
 ```
-GROQ_API_KEY=paste_your_gsk_key_here
+git add .
+```
+```
+git commit -m "fix groq error handling"
+```
+```
+git push
