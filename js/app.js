@@ -283,7 +283,7 @@ function renderMap() {
 }
 
 // ── Section Navigation ─────────────────────────────────────────────────────
-function showSection(name, btn) {
+function showSection(name) {
   document.querySelectorAll('.section-page').forEach(s => {
     s.classList.remove('active');
   });
@@ -291,11 +291,12 @@ function showSection(name, btn) {
     b.classList.remove('active');
   });
   document.getElementById('section-' + name).classList.add('active');
-  btn.classList.add('active');
+  document.getElementById('btn-' + name).classList.add('active');
   if (name === 'map') {
     setTimeout(renderMap, 100);
   }
 }
+
 
 // ── Utility ────────────────────────────────────────────────────────────────
 function esc(s) {
