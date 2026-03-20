@@ -6,30 +6,39 @@ exports.handler = async function (event) {
   try {
     const { prompt } = JSON.parse(event.body);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'llama3-70b-8192',
         max_tokens: 1000,
-        system: `You are a geopolitics intelligence briefing system for GEOSIGHT.
+        messages: [
+          {
+            role: 'system',
+            content: `You are a geopolitics intelligence briefing system for GEOSIGHT.
 Today: ${new Date().toDateString()}.
-Return ONLY valid JSON with no markdown or preamble.
-Be concise and factual.`,
-        messages: [{ role: 'user', content: prompt }]
+Return ONLY valid JSON with no markdown, no backticks, no preamble.
+Be concise and factual.`
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
       })
     });
 
     const data = await response.json();
 
+    const text = data.choices[0].message.content;
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ content: [{ text }] })
     };
 
   } catch (err) {
@@ -39,3 +48,12 @@ Be concise and factual.`,
     };
   }
 };
+```
+
+---
+
+### 16b — Update your `.env` file
+
+Click `.env` in the sidebar, select all (**Ctrl + A**), delete, paste this, save (**Ctrl + S**):
+```
+GROQ_API_KEY=paste_your_gsk_key_here
