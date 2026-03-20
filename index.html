@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEOSIGHT — Live Geopolitics Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo">GEO<span>SIGHT</span></div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="timestamp" id="clockDisplay">--:-- UTC</div>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-label">BREAKING</div>
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-item">Loading latest updates...</span>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="section-nav">
+    <button class="nav-btn active" onclick="showSection('overview', this)">
+      <span class="nav-icon">🌐</span> Overview
+    </button>
+    <button class="nav-btn" onclick="showSection('wars', this)">
+      <span class="nav-icon">⚔️</span> Active Wars
+    </button>
+    <button class="nav-btn" onclick="showSection('map', this)">
+      <span class="nav-icon">🗺️</span> Conflict Map
+    </button>
+    <button class="nav-btn" onclick="showSection('markets', this)">
+      <span class="nav-icon">📈</span> Markets
+    </button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- OVERVIEW SECTION -->
+    <div id="section-overview" class="section-page active">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="card-title">Global Overview</span>
+            <span class="ai-badge">✦ AI</span>
+          </div>
+          <button class="refresh-btn" id="refreshOverview" onclick="loadOverview()">
+            <svg id="overviewIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5"/>
+              <path d="M13.5 2v3.5H10"/>
+            </svg>
+            REFRESH
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="scroll-area" id="overviewBody">
+            <div class="loading-state">
+              <div class="skeleton" style="width:90%"></div>
+              <div class="skeleton" style="width:70%"></div>
+              <div class="skeleton" style="width:85%"></div>
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:80%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WARS SECTION -->
+    <div id="section-wars" class="section-page">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="card-title">Active Conflicts</span>
+            <span class="tag tag-red">LIVE</span>
+          </div>
+          <button class="refresh-btn" id="refreshWar" onclick="loadWars()">
+            <svg id="warIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5"/>
+              <path d="M13.5 2v3.5H10"/>
+            </svg>
+            REFRESH
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="scroll-area" id="warBody">
+            <div class="loading-state">
+              <div class="skeleton" style="width:80%"></div>
+              <div class="skeleton" style="width:60%"></div>
+              <div class="skeleton" style="width:90%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAP SECTION -->
+    <div id="section-map" class="section-page">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="card-title">Conflict Map</span>
+            <span class="tag tag-orange">INTERACTIVE</span>
+          </div>
+          <button class="refresh-btn" onclick="renderMap()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5"/>
+              <path d="M13.5 2v3.5H10"/>
+            </svg>
+            UPDATE
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="map-wrap">
+            <canvas id="worldMap"></canvas>
+            <div class="map-tooltip" id="mapTooltip">
+              <div class="tooltip-title" id="ttTitle"></div>
+              <div class="tooltip-desc" id="ttDesc"></div>
+            </div>
+          </div>
+          <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Active conflict</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>High tension</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>Instability</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Monitoring zone</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETS SECTION -->
+    <div id="section-markets" class="section-page">
+      <div class="card">
+        <div class="card-header">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="card-title">War-Affected Markets</span>
+            <span class="ai-badge">✦ AI</span>
+          </div>
+          <button class="refresh-btn" id="refreshMarket" onclick="loadMarkets()">
+            <svg id="marketIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M13.5 8a5.5 5.5 0 1 1-1.3-3.5"/>
+              <path d="M13.5 2v3.5H10"/>
+            </svg>
+            REFRESH
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="marketBody">
+            <div class="loading-state">
+              <div class="skeleton" style="width:100%;height:60px"></div>
+              <div class="skeleton" style="width:100%;height:60px"></div>
+            </div>
+          </div>
+          <div class="section-divider"></div>
+          <div style="font-family:'Syne',sans-serif;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Impact Analysis</div>
+          <div id="marketAnalysis" style="font-size:12px;color:#9ca3af;line-height:1.6;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
