@@ -35,18 +35,31 @@ async function loadOverview() {
       <div class="skeleton" style="width:60%"></div>
     </div>`;
   try {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
     const raw = await callClaude(
-      `Return a JSON array of 6 major geopolitical highlights happening right now.
-      Each object:
+      `Today is ${dateStr}. You are a live geopolitics intelligence analyst.
+      Return a JSON array of exactly 6 FRESH and SPECIFIC geopolitical highlights from the PAST 30 DAYS.
+
+      STRICT RULES:
+      - Item 1 MUST be about Russia vs Ukraine war — most recent battlefield update with specific cities, weapons or troop movements
+      - Item 2 MUST be about Russia vs Ukraine war — most recent diplomatic, sanctions or international aid development
+      - Item 3 MUST be about Iran vs Israel or Iran vs USA — latest specific military or diplomatic development
+      - Items 4, 5, 6 must cover other major world events — Sudan, Myanmar, North Korea, China-Taiwan, Gaza, or global sanctions
+      - NEVER give vague general summaries — always mention specific cities, leader names, weapons, dates and numbers
+      - Headlines must feel like breaking news not textbook facts
+      - Summaries must feel like they were written today by a war correspondent
+
+      Each object must have exactly these fields:
       {
         "id": number,
-        "headline": "clear specific headline max 10 words",
-        "region": "specific region name",
+        "headline": "breaking news style headline max 12 words",
+        "region": "specific country or region name",
         "category": "WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION",
         "severity": "HIGH|MEDIUM|LOW",
-        "summary": "2-3 sentence detailed explanation. Be specific with country names, leaders, and facts.",
-        "casualty": "estimated casualties if applicable else empty string",
-        "since": "when did this start e.g. Since 2022"
+        "summary": "2-3 sentences with specific recent facts, names, places and numbers",
+        "casualty": "specific recent casualty or displacement figure if applicable, else empty string",
+        "since": "most recent date reference e.g. March 2026 or Since Feb 2022"
       }`
     );
     const items = JSON.parse(raw);
