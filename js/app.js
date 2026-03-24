@@ -20,6 +20,16 @@ async function callClaude(prompt) {
   if (!data.content || !data.content[0]) throw new Error('Bad response: ' + JSON.stringify(data));
   return data.content[0].text;
 }
+// ── Fetch Real News ────────────────────────────────────────────────────────
+async function fetchRealNews(query) {
+  const res = await fetch('/.netlify/functions/get-news', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  const data = await res.json();
+  return data.articles || [];
+}
 
 // ── Overview ───────────────────────────────────────────────────────────────
 async function loadOverview() {
@@ -37,31 +47,43 @@ async function loadOverview() {
   try {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Fetch real news first
+    const [ukraineNews, iranNews, worldNews] = await Promise.all([
+      fetchRealNews('Russia Ukraine war'),
+      fetchRealNews('Iran Israel USA'),
+      fetchRealNews('geopolitics war conflict')
+    ]);
+
+    const allNews = [...ukraineNews, ...iranNews, ...worldNews];
+    const newsContext = allNews.map(a =>
+      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
+    ).join('\n\n');
+
     const raw = await callClaude(
-      `Today is ${dateStr}. You are a live geopolitics intelligence analyst.
-      Return a JSON array of exactly 6 FRESH and SPECIFIC geopolitical highlights from the PAST 30 DAYS.
+      `Today is ${dateStr}. You are a geopolitics intelligence analyst.
+      Below are REAL news articles fetched right now. Use ONLY these articles to create highlights.
+      DO NOT make up any information. Only use what is in the articles below.
 
-      STRICT RULES:
-      - Item 1 MUST be about Russia vs Ukraine war — most recent battlefield update with specific cities, weapons or troop movements
-      - Item 2 MUST be about Russia vs Ukraine war — most recent diplomatic, sanctions or international aid development
-      - Item 3 MUST be about Iran vs Israel or Iran vs USA — latest specific military or diplomatic development
-      - Items 4, 5, 6 must cover other major world events — Sudan, Myanmar, North Korea, China-Taiwan, Gaza, or global sanctions
-      - NEVER give vague general summaries — always mention specific cities, leader names, weapons, dates and numbers
-      - Headlines must feel like breaking news not textbook facts
-      - Summaries must feel like they were written today by a war correspondent
+      REAL NEWS ARTICLES:
+      ${newsContext}
 
-      Each object must have exactly these fields:
+      Based on the above real news, return a JSON array of exactly 6 highlights.
+      First 2 must be about Russia-Ukraine, 1 about Iran-Israel/USA, rest about other world events.
+
+      Each object:
       {
         "id": number,
-        "headline": "breaking news style headline max 12 words",
-        "region": "specific country or region name",
+        "headline": "headline based on real news max 12 words",
+        "region": "specific country or region",
         "category": "WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION",
         "severity": "HIGH|MEDIUM|LOW",
-        "summary": "2-3 sentences with specific recent facts, names, places and numbers",
-        "casualty": "specific recent casualty or displacement figure if applicable, else empty string",
-        "since": "most recent date reference e.g. March 2026 or Since Feb 2022"
+        "summary": "2-3 sentences based strictly on the real news articles provided",
+        "casualty": "casualty figure from the news if mentioned, else empty string",
+        "since": "date from the news article"
       }`
     );
+    
     const items = JSON.parse(raw);
     document.getElementById('overviewBody').innerHTML = items.map((it, i) => `
       <div class="news-item">
@@ -116,25 +138,53 @@ async function loadWars() {
       <div class="skeleton" style="width:90%"></div>
     </div>`;
   try {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Fetch real war news
+    const [ukraineWar, iranWar] = await Promise.all([
+      fetchRealNews('Russia Ukraine war battlefield missile'),
+      fetchRealNews('Iran Israel USA military strike')
+    ]);
+
+    const ukraineContext = ukraineWar.map(a =>
+      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
+    ).join('\n\n');
+
+    const iranContext = iranWar.map(a =>
+      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
+    ).join('\n\n');
+
     const raw = await callClaude(
-      `Return a JSON array of exactly 2 wars with very detailed updates:
-      1. Russia vs Ukraine war
-      2. Iran vs US and Israel tensions
+      `Today is ${dateStr}. You are a frontline war correspondent.
+      Below are REAL news articles. Use ONLY these to create war briefings.
+      DO NOT make up any information not in the articles.
+
+      RUSSIA-UKRAINE REAL NEWS:
+      ${ukraineContext}
+
+      IRAN-ISRAEL-USA REAL NEWS:
+      ${iranContext}
+
+      Based on the above real news, return a JSON array of exactly 2 war briefings.
+
       Each object:
       {
         "name": "war name",
-        "location": "specific locations affected",
+        "location": "specific locations from the news",
         "status": "CRITICAL|HIGH|MEDIUM",
         "parties": "e.g. Russia vs Ukraine",
         "duration": "e.g. Since Feb 2022",
-        "overview": "3-4 sentence detailed overview",
-        "latest": "2-3 sentence most recent developments",
-        "frontlines": "specific cities or regions contested",
-        "casualties": "estimated total casualties",
-        "international": "which countries are involved or supporting",
-        "outlook": "SHORT|ESCALATING|DE-ESCALATING"
+        "overview": "3-4 sentences based on real news articles provided",
+        "latest": "2-3 sentences about most recent developments from the real news",
+        "frontlines": "specific cities or regions mentioned in the news",
+        "casualties": "casualty figures mentioned in the news or latest known estimates",
+        "international": "countries and support mentioned in the news articles",
+        "outlook": "ESCALATING|DE-ESCALATING|STALEMATED"
       }`
     );
+
+
     const wars = JSON.parse(raw);
     document.getElementById('warBody').innerHTML = wars.map(w => `
       <div class="war-item ${w.status.toLowerCase()}">
