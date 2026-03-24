@@ -3,7 +3,7 @@
 A real-time geopolitics intelligence dashboard powered by AI.
 
 ## 🔴 Live Site
-👉 [geosight-dashboard.netlify.app](https://geosight-dashboard.netlify.app)
+👉 [geosight-dashboard.netlify.app](https://geosight-global.netlify.app)
 
 ## 📋 Features
 - **Global Overview** — AI-generated highlights of major geopolitical events
