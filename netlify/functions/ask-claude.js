@@ -46,54 +46,64 @@ exports.handler = async function (event) {
       newsContext = `=== RUSSIA-UKRAINE NEWS ===\n${ukraine}\n\n=== IRAN-ISRAEL-USA NEWS ===\n${iran}`;
     }
 
-    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a geopolitics intelligence analyst for GEOSIGHT live dashboard.
+    // Build the full message
+    const fullPrompt = newsContext
+      ? `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
+      : prompt;
+
+    // Call Gemini API
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `You are a geopolitics intelligence analyst for GEOSIGHT live dashboard.
 Use ONLY the real news articles provided. Do NOT make up facts or dates.
-Return ONLY valid JSON with no markdown, no backticks, no preamble whatsoever.`
-          },
-          {
-            role: 'user',
-            content: newsContext
-              ? `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
-              : prompt
+Return ONLY valid JSON with no markdown, no backticks, no preamble whatsoever.
+
+${fullPrompt}`
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2000
           }
-        ]
-      })
-    });
+        })
+      }
+    );
 
-    const groqData = await groqRes.json();
+    const geminiData = await geminiRes.json();
 
-    if (groqData.error) {
+    if (geminiData.error) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: groqData.error.message })
+        body: JSON.stringify({ error: geminiData.error.message })
       };
     }
 
-    if (!groqData.choices?.[0]?.message?.content) {
+    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'No response from Groq', raw: groqData })
+        body: JSON.stringify({ error: 'No response from Gemini', raw: geminiData })
       };
     }
 
-    const text = groqData.choices[0].message.content;
+    // Clean any accidental backticks
+    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: [{ text }] })
+      body: JSON.stringify({ content: [{ text: cleaned }] })
     };
 
   } catch (err) {
