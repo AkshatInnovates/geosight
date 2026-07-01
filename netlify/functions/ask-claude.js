@@ -8,53 +8,44 @@ exports.handler = async function (event) {
 
     let newsContext = '';
 
-    // Fetch real news based on type
     if (type === 'overview') {
-      const [ukraineRes, iranRes, worldRes] = await Promise.all([
+      const [r1, r2, r3] = await Promise.all([
         fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+war&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=war+conflict+geopolitics&lang=en&max=4&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
+        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+military&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
+        fetch(`https://gnews.io/api/v4/search?q=war+conflict+geopolitics&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
       ]);
 
-      const [ukraineData, iranData, worldData] = await Promise.all([
-        ukraineRes.json(),
-        iranRes.json(),
-        worldRes.json()
-      ]);
+      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
 
-      const allArticles = [
-        ...(ukraineData.articles || []),
-        ...(iranData.articles || []),
-        ...(worldData.articles || [])
+      const all = [
+        ...(d1.articles || []),
+        ...(d2.articles || []),
+        ...(d3.articles || [])
       ];
 
-      newsContext = allArticles.map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}\nSOURCE: ${a.source?.name || ''}`
+      newsContext = all.map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
       ).join('\n\n---\n\n');
 
     } else if (type === 'wars') {
-      const [ukraineRes, iranRes] = await Promise.all([
-        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war+missile+attack&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+military+strike&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
+      const [r1, r2] = await Promise.all([
+        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war+missile+frontline&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
+        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+strike+military&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
       ]);
 
-      const [ukraineData, iranData] = await Promise.all([
-        ukraineRes.json(),
-        iranRes.json()
-      ]);
+      const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
 
-      const ukraineArticles = (ukraineData.articles || []).map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}`
+      const ukraine = (d1.articles || []).map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
       ).join('\n\n');
 
-      const iranArticles = (iranData.articles || []).map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}`
+      const iran = (d2.articles || []).map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
       ).join('\n\n');
 
-      newsContext = `UKRAINE-RUSSIA NEWS:\n${ukraineArticles}\n\nIRAN-ISRAEL-USA NEWS:\n${iranArticles}`;
+      newsContext = `=== RUSSIA-UKRAINE NEWS ===\n${ukraine}\n\n=== IRAN-ISRAEL-USA NEWS ===\n${iran}`;
     }
 
-    // Now send to Groq with real news context
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -63,18 +54,19 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 1500,
+        max_tokens: 2000,
         messages: [
           {
             role: 'system',
-            content: `You are a geopolitics intelligence analyst for GEOSIGHT dashboard.
-You will be given REAL news articles. Use ONLY the information from these articles.
-Do NOT make up any facts, dates, or events not mentioned in the articles.
-Return ONLY valid JSON with no markdown, no backticks, no preamble.`
+            content: `You are a geopolitics intelligence analyst for GEOSIGHT live dashboard.
+Use ONLY the real news articles provided. Do NOT make up facts or dates.
+Return ONLY valid JSON with no markdown, no backticks, no preamble whatsoever.`
           },
           {
             role: 'user',
-            content: `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
+            content: newsContext
+              ? `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
+              : prompt
           }
         ]
       })
@@ -89,10 +81,10 @@ Return ONLY valid JSON with no markdown, no backticks, no preamble.`
       };
     }
 
-    if (!groqData.choices || !groqData.choices[0] || !groqData.choices[0].message) {
+    if (!groqData.choices?.[0]?.message?.content) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Invalid response from Groq' })
+        body: JSON.stringify({ error: 'No response from Groq', raw: groqData })
       };
     }
 

@@ -20,16 +20,6 @@ async function callClaude(prompt, type = 'general') {
   if (!data.content || !data.content[0]) throw new Error('Bad response: ' + JSON.stringify(data));
   return data.content[0].text;
 }
-// ── Fetch Real News ────────────────────────────────────────────────────────
-async function fetchRealNews(query) {
-  const res = await fetch('/.netlify/functions/get-news', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query })
-  });
-  const data = await res.json();
-  return data.articles || [];
-}
 
 // ── Overview ───────────────────────────────────────────────────────────────
 async function loadOverview() {
@@ -46,41 +36,33 @@ async function loadOverview() {
     </div>`;
   try {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateStr = now.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
 
-    // Fetch real news first
-    const [ukraineNews, iranNews, worldNews] = await Promise.all([
-      fetchRealNews('Russia Ukraine war'),
-      fetchRealNews('Iran Israel USA'),
-      fetchRealNews('geopolitics war conflict')
-    ]);
+    const raw = await callClaude(
+      `Today is ${dateStr}.
+      Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 6 highlights.
+      - Items 1 and 2 MUST be about Russia vs Ukraine war
+      - Item 3 MUST be about Iran vs Israel or Iran vs USA
+      - Items 4, 5, 6 can be about other world events from the news
+      - Use ONLY facts from the provided articles
+      - Do NOT make up any dates, names or events
 
-    const allNews = [...ukraineNews, ...iranNews, ...worldNews];
-    const newsContext = allNews.map(a =>
-      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
-    ).join('\n\n');
-
-  const raw = await callClaude(
-      `Today is ${dateStr}. Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 6 highlights.
-      First 2 must be about Russia-Ukraine war.
-      Item 3 must be about Iran vs Israel or USA.
-      Items 4-6 can be about other world events from the news.
-      Only use facts from the provided articles. Do not make up anything.
-
-      Each object:
+      Each object must have:
       {
         "id": number,
-        "headline": "headline based on real news max 12 words",
-        "region": "specific country or region from the news",
+        "headline": "specific breaking news headline max 12 words",
+        "region": "specific country or region",
         "category": "WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION",
         "severity": "HIGH|MEDIUM|LOW",
-        "summary": "2-3 sentences based strictly on the real news articles",
-        "casualty": "casualty figure from the news if mentioned else empty string",
-        "since": "publication date from the news article"
+        "summary": "2-3 sentences with specific facts from the real news",
+        "casualty": "casualty figure if mentioned in news else empty string",
+        "since": "date from the news article"
       }`,
       'overview'
     );
-    
+
     const items = JSON.parse(raw);
     document.getElementById('overviewBody').innerHTML = items.map((it, i) => `
       <div class="news-item">
@@ -104,7 +86,7 @@ async function loadOverview() {
     loadTicker(items);
   } catch (e) {
     document.getElementById('overviewBody').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:12px 0">Failed to load. ${e.message}</div>`;
+      `<div style="color:#f87171;font-size:12px;padding:12px 0">❌ Error: ${e.message}</div>`;
   }
   btn.classList.remove('loading');
   icon.classList.remove('spinning');
@@ -136,39 +118,30 @@ async function loadWars() {
     </div>`;
   try {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dateStr = now.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    });
 
-    // Fetch real war news
-    const [ukraineWar, iranWar] = await Promise.all([
-      fetchRealNews('Russia Ukraine war battlefield missile'),
-      fetchRealNews('Iran Israel USA military strike')
-    ]);
+    const raw = await callClaude(
+      `Today is ${dateStr}.
+      Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 2 war briefings:
+      1. Russia vs Ukraine war
+      2. Iran vs Israel and USA tensions
 
-    const ukraineContext = ukraineWar.map(a =>
-      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
-    ).join('\n\n');
-
-    const iranContext = iranWar.map(a =>
-      `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
-    ).join('\n\n');
-
-   const raw = await callClaude(
-      `Based on the REAL NEWS ARTICLES provided above about Russia-Ukraine and Iran-Israel-USA conflicts,
-      return a JSON array of exactly 2 detailed war briefings.
-      Use ONLY facts from the provided articles. Do not make up anything.
+      Use ONLY facts from the provided articles. Do NOT make up anything.
 
       Each object:
       {
         "name": "war name",
-        "location": "specific locations mentioned in the news",
+        "location": "specific locations from the news",
         "status": "CRITICAL|HIGH|MEDIUM",
         "parties": "e.g. Russia vs Ukraine",
         "duration": "e.g. Since Feb 2022",
-        "overview": "3-4 sentences based on the real news articles",
+        "overview": "3-4 sentences based on real news articles",
         "latest": "2-3 sentences about most recent developments from the news",
         "frontlines": "specific cities or regions mentioned in the news",
-        "casualties": "casualty figures from the news or latest known estimates",
-        "international": "countries and their involvement mentioned in the news",
+        "casualties": "casualty figures from the news",
+        "international": "countries and involvement mentioned in the news",
         "outlook": "ESCALATING|DE-ESCALATING|STALEMATED"
       }`,
       'wars'
@@ -211,7 +184,7 @@ async function loadWars() {
       </div>`).join('');
   } catch (e) {
     document.getElementById('warBody').innerHTML =
-      `<div style="color:var(--muted);font-size:12px;padding:12px 0">Failed to load. ${e.message}</div>`;
+      `<div style="color:#f87171;font-size:12px;padding:12px 0">❌ Error: ${e.message}</div>`;
   }
   btn.classList.remove('loading');
   icon.classList.remove('spinning');
@@ -311,14 +284,12 @@ function renderMap() {
     scrollWheelZoom: true
   });
 
-  // Dark style map tiles
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
   }).addTo(leafletMap);
 
-  // Add all conflict markers
   conflictZones.forEach(z => {
     const color = z.type === 'critical' ? '#ef4444' : z.type === 'high' ? '#f97316' : '#eab308';
     const size = z.type === 'critical' ? 18 : z.type === 'high' ? 14 : 10;
@@ -359,19 +330,7 @@ function renderMap() {
             font-size:14px;
             color:${color};
             margin-bottom:8px;
-            display:flex;
-            align-items:center;
-            gap:6px;
-          ">
-            <span style="
-              width:8px;height:8px;
-              background:${color};
-              border-radius:50%;
-              display:inline-block;
-              box-shadow:0 0 6px ${color};
-            "></span>
-            ${z.name}
-          </div>
+          ">${z.name}</div>
           <div style="font-size:12px;color:#9ca3af;line-height:1.6;margin-bottom:10px;">${z.desc}</div>
           <div style="
             font-size:10px;
@@ -382,7 +341,6 @@ function renderMap() {
             padding:3px 10px;
             border-radius:4px;
             display:inline-block;
-            letter-spacing:0.05em;
           ">${z.type.toUpperCase()}</div>
         </div>
       `, { maxWidth: 280 });
@@ -395,9 +353,7 @@ function showSection(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('section-' + name).classList.add('active');
   document.getElementById('btn-' + name).classList.add('active');
-  if (name === 'map') {
-    setTimeout(renderMap, 150);
-  }
+  if (name === 'map') setTimeout(renderMap, 150);
 }
 
 // ── Utility ────────────────────────────────────────────────────────────────
@@ -428,4 +384,3 @@ setInterval(() => {
   loadWars();
   loadMarkets();
 }, 30 * 60 * 1000);
-
