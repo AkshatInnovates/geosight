@@ -4,52 +4,99 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { prompt } = JSON.parse(event.body);
+    const { type, prompt } = JSON.parse(event.body);
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    let newsContext = '';
+
+    // Fetch real news based on type
+    if (type === 'overview') {
+      const [ukraineRes, iranRes, worldRes] = await Promise.all([
+        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
+        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+war&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
+        fetch(`https://gnews.io/api/v4/search?q=war+conflict+geopolitics&lang=en&max=4&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
+      ]);
+
+      const [ukraineData, iranData, worldData] = await Promise.all([
+        ukraineRes.json(),
+        iranRes.json(),
+        worldRes.json()
+      ]);
+
+      const allArticles = [
+        ...(ukraineData.articles || []),
+        ...(iranData.articles || []),
+        ...(worldData.articles || [])
+      ];
+
+      newsContext = allArticles.map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}\nSOURCE: ${a.source?.name || ''}`
+      ).join('\n\n---\n\n');
+
+    } else if (type === 'wars') {
+      const [ukraineRes, iranRes] = await Promise.all([
+        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war+missile+attack&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
+        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+military+strike&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
+      ]);
+
+      const [ukraineData, iranData] = await Promise.all([
+        ukraineRes.json(),
+        iranRes.json()
+      ]);
+
+      const ukraineArticles = (ukraineData.articles || []).map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}`
+      ).join('\n\n');
+
+      const iranArticles = (iranData.articles || []).map(a =>
+        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || ''}`
+      ).join('\n\n');
+
+      newsContext = `UKRAINE-RUSSIA NEWS:\n${ukraineArticles}\n\nIRAN-ISRAEL-USA NEWS:\n${iranArticles}`;
+    }
+
+    // Now send to Groq with real news context
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        'Authorization': 'Bearer ' + process.env.GROQ_API_KEY
       },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [
           {
             role: 'system',
-            content: `You are a geopolitics intelligence briefing system for GEOSIGHT. Today: ${new Date().toDateString()}. Return ONLY valid JSON with no markdown, no backticks, no preamble. Be concise and factual.`
+            content: `You are a geopolitics intelligence analyst for GEOSIGHT dashboard.
+You will be given REAL news articles. Use ONLY the information from these articles.
+Do NOT make up any facts, dates, or events not mentioned in the articles.
+Return ONLY valid JSON with no markdown, no backticks, no preamble.`
           },
           {
             role: 'user',
-            content: prompt
+            content: `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
           }
         ]
       })
     });
 
-    const data = await response.json();
+    const groqData = await groqRes.json();
 
-    // Log for debugging
-    console.log('Groq response:', JSON.stringify(data));
-
-    // Check for errors from Groq
-    if (data.error) {
+    if (groqData.error) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: data.error.message })
+        body: JSON.stringify({ error: groqData.error.message })
       };
     }
 
-    // Check response structure
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    if (!groqData.choices || !groqData.choices[0] || !groqData.choices[0].message) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Invalid response from Groq', raw: data })
+        body: JSON.stringify({ error: 'Invalid response from Groq' })
       };
     }
 
-    const text = data.choices[0].message.content;
+    const text = groqData.choices[0].message.content;
 
     return {
       statusCode: 200,

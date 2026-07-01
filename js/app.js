@@ -9,11 +9,11 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // ── API Call ───────────────────────────────────────────────────────────────
-async function callClaude(prompt) {
+async function callClaude(prompt, type = 'general') {
   const res = await fetch('/.netlify/functions/ask-claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt, type })
   });
   const data = await res.json();
   if (data.error) throw new Error('API Error: ' + data.error);
@@ -60,28 +60,25 @@ async function loadOverview() {
       `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
     ).join('\n\n');
 
-    const raw = await callClaude(
-      `Today is ${dateStr}. You are a geopolitics intelligence analyst.
-      Below are REAL news articles fetched right now. Use ONLY these articles to create highlights.
-      DO NOT make up any information. Only use what is in the articles below.
-
-      REAL NEWS ARTICLES:
-      ${newsContext}
-
-      Based on the above real news, return a JSON array of exactly 6 highlights.
-      First 2 must be about Russia-Ukraine, 1 about Iran-Israel/USA, rest about other world events.
+  const raw = await callClaude(
+      `Today is ${dateStr}. Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 6 highlights.
+      First 2 must be about Russia-Ukraine war.
+      Item 3 must be about Iran vs Israel or USA.
+      Items 4-6 can be about other world events from the news.
+      Only use facts from the provided articles. Do not make up anything.
 
       Each object:
       {
         "id": number,
         "headline": "headline based on real news max 12 words",
-        "region": "specific country or region",
+        "region": "specific country or region from the news",
         "category": "WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION",
         "severity": "HIGH|MEDIUM|LOW",
-        "summary": "2-3 sentences based strictly on the real news articles provided",
-        "casualty": "casualty figure from the news if mentioned, else empty string",
-        "since": "date from the news article"
-      }`
+        "summary": "2-3 sentences based strictly on the real news articles",
+        "casualty": "casualty figure from the news if mentioned else empty string",
+        "since": "publication date from the news article"
+      }`,
+      'overview'
     );
     
     const items = JSON.parse(raw);
@@ -155,35 +152,27 @@ async function loadWars() {
       `HEADLINE: ${a.title}\nDATE: ${a.date}\nSUMMARY: ${a.summary}`
     ).join('\n\n');
 
-    const raw = await callClaude(
-      `Today is ${dateStr}. You are a frontline war correspondent.
-      Below are REAL news articles. Use ONLY these to create war briefings.
-      DO NOT make up any information not in the articles.
-
-      RUSSIA-UKRAINE REAL NEWS:
-      ${ukraineContext}
-
-      IRAN-ISRAEL-USA REAL NEWS:
-      ${iranContext}
-
-      Based on the above real news, return a JSON array of exactly 2 war briefings.
+   const raw = await callClaude(
+      `Based on the REAL NEWS ARTICLES provided above about Russia-Ukraine and Iran-Israel-USA conflicts,
+      return a JSON array of exactly 2 detailed war briefings.
+      Use ONLY facts from the provided articles. Do not make up anything.
 
       Each object:
       {
         "name": "war name",
-        "location": "specific locations from the news",
+        "location": "specific locations mentioned in the news",
         "status": "CRITICAL|HIGH|MEDIUM",
         "parties": "e.g. Russia vs Ukraine",
         "duration": "e.g. Since Feb 2022",
-        "overview": "3-4 sentences based on real news articles provided",
-        "latest": "2-3 sentences about most recent developments from the real news",
+        "overview": "3-4 sentences based on the real news articles",
+        "latest": "2-3 sentences about most recent developments from the news",
         "frontlines": "specific cities or regions mentioned in the news",
-        "casualties": "casualty figures mentioned in the news or latest known estimates",
-        "international": "countries and support mentioned in the news articles",
+        "casualties": "casualty figures from the news or latest known estimates",
+        "international": "countries and their involvement mentioned in the news",
         "outlook": "ESCALATING|DE-ESCALATING|STALEMATED"
-      }`
+      }`,
+      'wars'
     );
-
 
     const wars = JSON.parse(raw);
     document.getElementById('warBody').innerHTML = wars.map(w => `
