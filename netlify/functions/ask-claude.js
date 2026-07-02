@@ -10,13 +10,14 @@ exports.handler = async function (event) {
 
     // Fetch real news — only 1 request per call to save quota
     if (type === 'overview' || type === 'wars') {
+      const today = new Date().toISOString().slice(0, 10);
       const query = type === 'wars'
-        ? 'Russia Ukraine OR Iran Israel war'
-        : 'war conflict geopolitics';
+       ? 'Russia Ukraine attack missile frontline'
+       : 'Russia Ukraine Iran Israel war attack';
 
       try {
         const newsRes = await fetch(
-          `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
+          `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=10&from=${today}&apiKey=${process.env.NEWS_API_KEY}`
         );
         const newsData = await newsRes.json();
         const articles = newsData.articles || [];
