@@ -38,14 +38,16 @@ exports.handler = async function (event) {
     if (type === 'overview' || type === 'wars') {
       // Fetch from multiple free RSS feeds simultaneously
       const feeds = type === 'wars' ? [
-        'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
-        'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-        'https://rss.dw.com/rdf/rss-en-world',
-      ] : [
-        'https://feeds.bbci.co.uk/news/world/rss.xml',
-        'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-        'https://rss.dw.com/rdf/rss-en-world',
-      ];
+  'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
+  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://rss.dw.com/rdf/rss-en-world',
+] : [
+  'https://feeds.bbci.co.uk/news/world/rss.xml',
+  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://rss.dw.com/rdf/rss-en-world',
+];
 
       const rssResults = await Promise.all(feeds.map(fetchRSS));
       const allArticles = [];
