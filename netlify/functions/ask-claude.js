@@ -8,50 +8,47 @@ exports.handler = async function (event) {
 
     let newsContext = '';
 
-    if (type === 'overview') {
-      const [r1, r2, r3] = await Promise.all([
-        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+military&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=war+conflict+geopolitics&lang=en&max=3&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
-      ]);
+    // Fetch real news — only 1 request per call to save quota
+    if (type === 'overview' || type === 'wars') {
+      const query = type === 'wars'
+        ? 'Russia Ukraine OR Iran Israel war'
+        : 'war conflict geopolitics';
 
-      const [d1, d2, d3] = await Promise.all([r1.json(), r2.json(), r3.json()]);
+      try {
+        const newsRes = await fetch(
+          `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=6&apiKey=${process.env.NEWS_API_KEY}`
+        );
+        const newsData = await newsRes.json();
+        const articles = newsData.articles || [];
 
-      const all = [
-        ...(d1.articles || []),
-        ...(d2.articles || []),
-        ...(d3.articles || [])
-      ];
-
-      newsContext = all.map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
-      ).join('\n\n---\n\n');
-
-    } else if (type === 'wars') {
-      const [r1, r2] = await Promise.all([
-        fetch(`https://gnews.io/api/v4/search?q=Russia+Ukraine+war+missile+frontline&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`),
-        fetch(`https://gnews.io/api/v4/search?q=Iran+Israel+USA+strike+military&lang=en&max=5&sortby=publishedAt&token=${process.env.GNEWS_API_KEY}`)
-      ]);
-
-      const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
-
-      const ukraine = (d1.articles || []).map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
-      ).join('\n\n');
-
-      const iran = (d2.articles || []).map(a =>
-        `TITLE: ${a.title}\nDATE: ${a.publishedAt}\nDESCRIPTION: ${a.description || 'N/A'}`
-      ).join('\n\n');
-
-      newsContext = `=== RUSSIA-UKRAINE NEWS ===\n${ukraine}\n\n=== IRAN-ISRAEL-USA NEWS ===\n${iran}`;
+        if (articles.length > 0) {
+          newsContext = articles.map(a =>
+            `TITLE: ${a.title}\nDATE: ${a.publishedAt?.slice(0, 10)}\nSUMMARY: ${a.description || 'N/A'}`
+          ).join('\n---\n');
+        }
+      } catch (newsErr) {
+        console.log('News fetch failed, using AI knowledge:', newsErr.message);
+      }
     }
 
-    // Build the full message
-    const fullPrompt = newsContext
-      ? `REAL NEWS ARTICLES FETCHED RIGHT NOW:\n\n${newsContext}\n\n${prompt}`
-      : prompt;
+    // Build short efficient prompt to save Groq tokens
+    let finalPrompt = '';
 
-    // Call Groq API
+    if (type === 'overview') {
+      finalPrompt = newsContext
+        ? `Based on these real news articles:\n${newsContext}\n\nReturn JSON array of 6 geopolitical highlights. Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences max","casualty":"if mentioned else empty","since":"date from article"}`
+        : `Return JSON array of 6 current geopolitical highlights focusing on Russia-Ukraine, Iran-Israel, and other conflicts. Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences","casualty":"","since":""}`;
+
+    } else if (type === 'wars') {
+      finalPrompt = newsContext
+        ? `Based on these real news articles:\n${newsContext}\n\nReturn JSON array of 2 war briefings for Russia-Ukraine and Iran-Israel-USA. Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences from news","frontlines":"cities","casualties":"estimate","international":"countries involved","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`
+        : `Return JSON array of 2 detailed war briefings: 1. Russia-Ukraine war 2. Iran-Israel-USA tensions. Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences","frontlines":"cities","casualties":"estimate","international":"countries","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`;
+
+    } else {
+      finalPrompt = prompt;
+    }
+
+    // Call Groq with smallest efficient model
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -59,18 +56,17 @@ exports.handler = async function (event) {
         'Authorization': 'Bearer ' + process.env.GROQ_API_KEY
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 2000,
+        model: 'llama3-8b-8192',
+        max_tokens: 1000,
+        temperature: 0.3,
         messages: [
           {
             role: 'system',
-            content: `You are a geopolitics intelligence analyst for GEOSIGHT live dashboard.
-Use ONLY the real news articles provided. Do NOT make up facts or dates.
-Return ONLY valid JSON with no markdown, no backticks, no preamble whatsoever.`
+            content: 'You are a geopolitics analyst. Return ONLY valid JSON. No markdown, no backticks, no extra text.'
           },
           {
             role: 'user',
-            content: fullPrompt
+            content: finalPrompt
           }
         ]
       })
@@ -90,11 +86,10 @@ Return ONLY valid JSON with no markdown, no backticks, no preamble whatsoever.`
     if (!text) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'No response from Groq', raw: groqData })
+        body: JSON.stringify({ error: 'No response from Groq' })
       };
     }
 
-    // Clean any accidental backticks
     const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
 
     return {
