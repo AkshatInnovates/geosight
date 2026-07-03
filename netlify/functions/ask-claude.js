@@ -2,7 +2,7 @@ const https = require('https');
 
 function fetchRSS(url) {
   return new Promise((resolve) => {
-    https.get(url, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
@@ -20,7 +20,11 @@ function parseRSS(xml) {
     const desc = (item.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/) ||
                   item.match(/<description>(.*?)<\/description>/) || [])[1] || '';
     const date = (item.match(/<pubDate>(.*?)<\/pubDate>/) || [])[1] || '';
-    if (title) items.push({ title, desc: desc.replace(/<[^>]*>/g, '').slice(0, 200), date });
+    if (title) items.push({
+      title: title.replace(/<[^>]*>/g, '').trim(),
+      desc: desc.replace(/<[^>]*>/g, '').slice(0, 200).trim(),
+      date
+    });
   });
   return items;
 }
@@ -31,23 +35,39 @@ exports.handler = async function (event) {
   }
 
   try {
-    const { type, prompt } = JSON.parse(event.body);
+    const { type, prompt, lang } = JSON.parse(event.body);
+    const isHindi = lang === 'hi';
 
     let newsContext = '';
 
     if (type === 'overview' || type === 'wars') {
-      // Fetch from multiple free RSS feeds simultaneously
-      const feeds = type === 'wars' ? [
-  'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
-  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-  'https://www.aljazeera.com/xml/rss/all.xml',
-  'https://rss.dw.com/rdf/rss-en-world',
-] : [
-  'https://feeds.bbci.co.uk/news/world/rss.xml',
-  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-  'https://www.aljazeera.com/xml/rss/all.xml',
-  'https://rss.dw.com/rdf/rss-en-world',
-];
+
+      // Choose feeds based on language
+      let feeds = [];
+
+      if (isHindi) {
+        feeds = type === 'wars' ? [
+          'https://www.thelallantop.com/feed',
+          'https://amarujala.com/rss/breaking-news.xml',
+          'https://aninews.in/rss-feed/',
+        ] : [
+          'https://www.thelallantop.com/feed',
+          'https://amarujala.com/rss/breaking-news.xml',
+          'https://aninews.in/rss-feed/',
+        ];
+      } else {
+        feeds = type === 'wars' ? [
+          'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
+          'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+          'https://www.aljazeera.com/xml/rss/all.xml',
+          'https://rss.dw.com/rdf/rss-en-world',
+        ] : [
+          'https://feeds.bbci.co.uk/news/world/rss.xml',
+          'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+          'https://www.aljazeera.com/xml/rss/all.xml',
+          'https://rss.dw.com/rdf/rss-en-world',
+        ];
+      }
 
       const rssResults = await Promise.all(feeds.map(fetchRSS));
       const allArticles = [];
@@ -66,21 +86,38 @@ exports.handler = async function (event) {
       }
     }
 
-    // Build efficient prompt
+    // Build prompt based on language
     let finalPrompt = '';
+    const langInstruction = isHindi
+      ? 'IMPORTANT: Respond ENTIRELY in Hindi language. Use Devanagari script for all text fields.'
+      : 'Respond in English.';
 
     if (type === 'overview') {
       finalPrompt = newsContext
-        ? `Based on these REAL fresh news articles from today:\n${newsContext}\n\nReturn JSON array of 6 geopolitical highlights. Focus on war and conflict news. Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences based on real news","casualty":"if mentioned else empty","since":"date from article"}`
-        : `Return JSON array of 6 current geopolitical highlights about Russia-Ukraine, Iran-Israel, and other conflicts. Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences","casualty":"","since":""}`;
+        ? `${langInstruction}
+Based on these REAL fresh news articles:
+${newsContext}
+
+Return JSON array of 6 geopolitical highlights. Focus on war and conflict news.
+Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences based on real news","casualty":"if mentioned else empty string","since":"date from article"}`
+        : `${langInstruction}
+Return JSON array of 6 current geopolitical highlights about Russia-Ukraine, Iran-Israel, and other conflicts.
+Each: {"id":number,"headline":"max 10 words","region":"country","category":"WAR|DIPLOMACY|SANCTIONS|CRISIS|ELECTION","severity":"HIGH|MEDIUM|LOW","summary":"2 sentences","casualty":"","since":""}`;
 
     } else if (type === 'wars') {
       finalPrompt = newsContext
-        ? `Based on these REAL fresh news articles from today:\n${newsContext}\n\nReturn JSON array of 2 war briefings for: 1. Russia-Ukraine war 2. Iran-Israel-USA tensions. Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences from the real news articles","frontlines":"cities from news","casualties":"estimate","international":"countries","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`
-        : `Return JSON array of 2 detailed war briefings: 1. Russia-Ukraine 2. Iran-Israel-USA. Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences","frontlines":"cities","casualties":"estimate","international":"countries","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`;
+        ? `${langInstruction}
+Based on these REAL fresh news articles:
+${newsContext}
+
+Return JSON array of 2 war briefings for: 1. Russia-Ukraine war 2. Iran-Israel-USA tensions.
+Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences from real news","frontlines":"cities","casualties":"estimate","international":"countries","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`
+        : `${langInstruction}
+Return JSON array of 2 detailed war briefings: 1. Russia-Ukraine 2. Iran-Israel-USA.
+Each: {"name":"war name","location":"places","status":"CRITICAL|HIGH|MEDIUM","parties":"vs","duration":"Since X","overview":"2 sentences","latest":"2 sentences","frontlines":"cities","casualties":"estimate","international":"countries","outlook":"ESCALATING|DE-ESCALATING|STALEMATED"}`;
 
     } else {
-      finalPrompt = prompt;
+      finalPrompt = `${langInstruction}\n${prompt}`;
     }
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -91,12 +128,12 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
-        max_tokens: 1000,
+        max_tokens: 1200,
         temperature: 0.3,
         messages: [
           {
             role: 'system',
-            content: 'You are a geopolitics analyst. Return ONLY valid JSON. No markdown, no backticks, no extra text.'
+            content: `You are a geopolitics analyst. Return ONLY valid JSON. No markdown, no backticks, no extra text. ${isHindi ? 'All text values in JSON must be in Hindi (Devanagari script).' : ''}`
           },
           {
             role: 'user',

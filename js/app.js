@@ -8,12 +8,25 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
+// ── Language ───────────────────────────────────────────────────────────────
+let currentLang = 'en';
+
+function switchLang(lang) {
+  currentLang = lang;
+  document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+  document.getElementById('btnHI').classList.toggle('active', lang === 'hi');
+  loadOverview();
+  loadWars();
+  loadMarkets();
+}
+window.switchLang = switchLang;
+
 // ── API Call ───────────────────────────────────────────────────────────────
 async function callClaude(prompt, type = 'general') {
   const res = await fetch('/.netlify/functions/ask-claude', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, type })
+    body: JSON.stringify({ prompt, type, lang: currentLang })
   });
   const data = await res.json();
   if (data.error) throw new Error('API Error: ' + data.error);
@@ -39,9 +52,12 @@ async function loadOverview() {
     const dateStr = now.toLocaleDateString('en-GB', {
       day: '2-digit', month: 'long', year: 'numeric'
     });
+    const langNote = currentLang === 'hi'
+      ? 'सभी JSON values Hindi (Devanagari) में लिखें।'
+      : 'Write all JSON values in English.';
 
     const raw = await callClaude(
-      `Today is ${dateStr}.
+      `Today is ${dateStr}. ${langNote}
       Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 6 highlights.
       - Items 1 and 2 MUST be about Russia vs Ukraine war
       - Item 3 MUST be about Iran vs Israel or Iran vs USA
@@ -121,9 +137,12 @@ async function loadWars() {
     const dateStr = now.toLocaleDateString('en-GB', {
       day: '2-digit', month: 'long', year: 'numeric'
     });
+    const langNote = currentLang === 'hi'
+      ? 'सभी JSON values Hindi (Devanagari) में लिखें।'
+      : 'Write all JSON values in English.';
 
     const raw = await callClaude(
-      `Today is ${dateStr}.
+      `Today is ${dateStr}. ${langNote}
       Based on the REAL NEWS ARTICLES provided above, return a JSON array of exactly 2 war briefings:
       1. Russia vs Ukraine war
       2. Iran vs Israel and USA tensions
@@ -148,6 +167,7 @@ async function loadWars() {
     );
 
     const wars = JSON.parse(raw);
+    const isHindi = currentLang === 'hi';
     document.getElementById('warBody').innerHTML = wars.map(w => `
       <div class="war-item ${w.status.toLowerCase()}">
         <div class="war-header">
@@ -160,21 +180,21 @@ async function loadWars() {
             <span class="tag ${w.outlook === 'ESCALATING' ? 'tag-red' : w.outlook === 'DE-ESCALATING' ? 'tag-green' : 'tag-orange'}">${esc(w.outlook)}</span>
           </div>
         </div>
-        <div class="war-section-label">Overview</div>
+        <div class="war-section-label">${isHindi ? 'अवलोकन' : 'Overview'}</div>
         <div class="war-desc">${esc(w.overview)}</div>
-        <div class="war-section-label">Latest Update</div>
+        <div class="war-section-label">${isHindi ? 'ताज़ा अपडेट' : 'Latest Update'}</div>
         <div class="war-desc">${esc(w.latest)}</div>
         <div class="war-grid">
           <div class="war-grid-item">
-            <div class="war-grid-label">📍 Active Frontlines</div>
+            <div class="war-grid-label">📍 ${isHindi ? 'सक्रिय मोर्चे' : 'Active Frontlines'}</div>
             <div class="war-grid-value">${esc(w.frontlines)}</div>
           </div>
           <div class="war-grid-item">
-            <div class="war-grid-label">💀 Casualties</div>
+            <div class="war-grid-label">💀 ${isHindi ? 'हताहत' : 'Casualties'}</div>
             <div class="war-grid-value">${esc(w.casualties)}</div>
           </div>
           <div class="war-grid-item" style="grid-column:1/-1;">
-            <div class="war-grid-label">🌍 International Involvement</div>
+            <div class="war-grid-label">🌍 ${isHindi ? 'अंतर्राष्ट्रीय भागीदारी' : 'International Involvement'}</div>
             <div class="war-grid-value">${esc(w.international)}</div>
           </div>
         </div>
@@ -201,10 +221,15 @@ async function loadMarkets() {
       <div class="skeleton" style="width:100%;height:55px"></div>
       <div class="skeleton" style="width:100%;height:55px"></div>
     </div>`;
-  document.getElementById('marketAnalysis').textContent = 'Loading analysis...';
+  document.getElementById('marketAnalysis').textContent =
+    currentLang === 'hi' ? 'विश्लेषण लोड हो रहा है...' : 'Loading analysis...';
   try {
+    const langNote = currentLang === 'hi'
+      ? 'war_impact और analysis Hindi में लिखें।'
+      : 'Write war_impact and analysis in English.';
+
     const raw = await callClaude(
-      `Return JSON with commodity prices directly affected by current wars:
+      `${langNote} Return JSON with commodity prices directly affected by current wars:
       {
         "commodities": [
           {"name":"Brent Crude Oil","symbol":"BRENT","price":"$XX.XX","change":"+X.X%","direction":"up|down","unit":"per barrel","war_impact":"one sentence on war effect"},

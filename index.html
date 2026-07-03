@@ -10,10 +10,14 @@
 </head>
 <body>
 
-  <!-- TOP BAR -->
+<!-- TOP BAR -->
   <div class="topbar">
     <div class="logo">GEO<span>SIGHT</span></div>
     <div style="display:flex;align-items:center;gap:14px;">
+      <div class="lang-switch">
+        <button class="lang-btn active" id="btnEN" onclick="switchLang('en')">🇬🇧 EN</button>
+        <button class="lang-btn" id="btnHI" onclick="switchLang('hi')">🇮🇳 हिंदी</button>
+      </div>
       <div class="live-badge"><div class="live-dot"></div>LIVE</div>
       <div class="timestamp" id="clockDisplay">--:-- UTC</div>
     </div>
