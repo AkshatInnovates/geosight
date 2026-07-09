@@ -45,29 +45,18 @@ exports.handler = async function (event) {
       // Choose feeds based on language
       let feeds = [];
 
-      if (isHindi) {
-        feeds = type === 'wars' ? [
-          'https://www.thelallantop.com/feed',
-          'https://amarujala.com/rss/breaking-news.xml',
-          'https://aninews.in/rss-feed/',
-        ] : [
-          'https://www.thelallantop.com/feed',
-          'https://amarujala.com/rss/breaking-news.xml',
-          'https://aninews.in/rss-feed/',
-        ];
-      } else {
-        feeds = type === 'wars' ? [
-          'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
-          'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-          'https://www.aljazeera.com/xml/rss/all.xml',
-          'https://rss.dw.com/rdf/rss-en-world',
-        ] : [
-          'https://feeds.bbci.co.uk/news/world/rss.xml',
-          'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
-          'https://www.aljazeera.com/xml/rss/all.xml',
-          'https://rss.dw.com/rdf/rss-en-world',
-        ];
-      }
+     // Always use English RSS feeds for fresh news — translate to Hindi via AI
+feeds = type === 'wars' ? [
+  'https://feeds.bbci.co.uk/news/world/europe/rss.xml',
+  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://rss.dw.com/rdf/rss-en-world',
+] : [
+  'https://feeds.bbci.co.uk/news/world/rss.xml',
+  'https://feeds.bbci.co.uk/news/world/middle_east/rss.xml',
+  'https://www.aljazeera.com/xml/rss/all.xml',
+  'https://rss.dw.com/rdf/rss-en-world',
+];
 
       const rssResults = await Promise.all(feeds.map(fetchRSS));
       const allArticles = [];
